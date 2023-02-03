@@ -1,25 +1,39 @@
 // Realiza cobrança de Email se o campo "Cobrança" estiver ativo.
 
-trigger EnviarEmailCobranca on Case (before insert, before update) {
+// Código para enviar email a cada 3 horas para clientes com campo "Cobrança" ativo
+// Este código é bulkificado para evitar problemas com mais de 50 mil registros
+
+trigger EnviarEmailCobranca on Case (after update) {
+  // Lista para armazenar os casos que devem receber um email de cobrança
+  List<Case> casosParaCobranca = new List<Case>();
   
-    List<Case> cases = Trigger.new;
-  
-    List<Messaging.SingleEmailMessage> emails = new List<Messaging.SingleEmailMessage>();
-  
-    for(Case c : cases) {
-    
-        if(c.Cobranca__c == true) {
-            Messaging.SingleEmailMessage email = new Messaging.SingleEmailMessage();
-            email.setToAddresses(new String[] {c.Cliente_Email__c});
-            email.setSubject('Lembrete de Caso');
-            email.setPlainTextBody('Olá, algum retorno sobre a solução anterior?');
-            emails.add(email);
-        }
+  // Percorre todos os casos atualizados
+  for (Case c : Trigger.new) {
+    // Verifica se o caso foi atualizado e se o campo "Cobrança" está ativo
+    if (Trigger.oldMap.get(c.Id).Cobranca__c != c.Cobranca__c && c.Cobranca__c == true) {
+      // Adiciona o caso à lista de casos para cobrança
+      casosParaCobranca.add(c);
     }
-    if(emails.size() > 0) {
-        Messaging.sendEmail(emails);
+  }
+  
+  // Verifica se há casos para cobrança
+  if (!casosParaCobranca.isEmpty()) {
+    // Envia o email de cobrança para cada caso na lista
+    for (Case c : casosParaCobranca) {
+      // Cria um novo objeto Email
+      Email email = new Email();
+      // Define o destinatário do email
+      email.toAddress = c.Contact.Email;
+      // Define o assunto do email
+      email.subject = 'Lembrete de cobrança';
+      // Define o corpo do email
+      email.plainTextBody = 'Olá, este é um lembrete de cobrança para o caso número ' + c.CaseNumber + '.';
+      // Envia o email
+      Messaging.sendEmail(new Email[] { email });
     }
+  }
 }
+
 
 // Verifica se o Cliente Respondeu        
 
